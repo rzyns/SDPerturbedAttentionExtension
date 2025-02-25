@@ -1,10 +1,13 @@
+using System.IO;
+using System.Runtime.Serialization;
+
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Converters;
+
+using SwarmUI.Builtin_ComfyUIBackend;
 using SwarmUI.Core;
 using SwarmUI.Utils;
 using SwarmUI.Text2Image;
-using SwarmUI.Builtin_ComfyUIBackend;
-using Newtonsoft.Json.Linq;
-using System.Runtime.Serialization;
-using Newtonsoft.Json.Converters;
 
 // NOTE: Namespace must NOT contain "SwarmUI" (this is reserved for built-ins)
 namespace SDPerturbedAttentionExtension;
@@ -34,6 +37,8 @@ public enum RescaleMode
 // NOTE: Classname must match filename
 public class SDPerturbedAttentionExtension : Extension // extend the "Extension" class in Swarm Core
 {
+    protected const string FeatureId = "perturbedattention";
+
     // Generally define parameters as "public static" to make them easy to access in other code, actual registration is done in OnInit
     public static T2IRegisteredParam<float> PerturbedAttentionScale, PerturbedAttentionAdaptiveScale, PerturbedAttentionSigmaStart, PerturbedAttentionSigmaEnd, PerturbedAttentionRescale;
 
@@ -53,6 +58,26 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
     // OnInit is called when the extension is loaded, and is the general place to register most things
     public override void OnInit()
     {
+        base.OnInit();
+
+        // Add the JS file, which manages the install buttons for the comfy nodes
+        ScriptFiles.Add($"assets/{FeatureId}.js");
+
+        ComfyUIBackendExtension.NodeToFeatureMap["PerturbedAttention"] = FeatureId;
+        ComfyUIBackendExtension.NodeToFeatureMap["SlidingWindowGuidanceAdvanced"] = FeatureId;
+
+        // Add required custom node as installable feature
+        InstallableFeatures.RegisterInstallableFeature(new("PerturbedAttention", FeatureId, "https://github.com/pamparamm/sd-perturbed-attention", "pamparamm", "This will install the sd-perturbed-attention ComfyUI nodes developed by pamparamm.\nDo you wish to install?"));
+
+        // Prevents install button from being shown during backend load if it looks like it was installed
+        // it will appear if the backend loads and the backend reports it's not installed
+        if (Directory.Exists(Utilities.CombinePathWithAbsolute(Environment.CurrentDirectory, $"{ComfyUIBackendExtension.Folder}/DLNodes/sd-perturbed-attention")))
+        {
+            ComfyUIBackendExtension.FeaturesSupported.UnionWith([FeatureId]);
+            ComfyUIBackendExtension.FeaturesDiscardIfNotFound.UnionWith([FeatureId]);
+        }
+
+
         PerturbedAttentionParameters = new(
             "Perturbed Attention Guidance (Advanced)",
             Description: string.Join("\n", [
@@ -91,7 +116,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "3.0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui", // "comfyui" feature flag for parameters that require ComfyUI
+            FeatureFlag: FeatureId,
 
             // Check your IDE's completions here, there's tons of additional options. Look inside the T2IParamTypes to see how other params are registered.
             Min: 0,
@@ -109,7 +134,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "0.0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui", // "comfyui" feature flag for parameters that require ComfyUI
+            FeatureFlag: FeatureId,
 
             // Check your IDE's completions here, there's tons of additional options. Look inside the T2IParamTypes to see how other params are registered.
             Min: 0,
@@ -127,7 +152,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "middle",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Type: T2IParamDataType.DROPDOWN,
             GetValues: a => [.. Enum.GetNames(typeof(UnetBlock))],
             SharpType: typeof(UnetBlock),
@@ -141,7 +166,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: 0,
             IsAdvanced: true
         ));
@@ -160,7 +185,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "-1.0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: -1,
             Max: 10000,
             Step: 0.01,
@@ -181,7 +206,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "-1.0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: -1,
             Max: 10000,
             Step: 0.01,
@@ -195,7 +220,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "0.0",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: 0,
             Max: 1,
             Step: 0.01,
@@ -214,7 +239,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "full",
             Toggleable: true,
             Group: PerturbedAttentionParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Type: T2IParamDataType.DROPDOWN,
             SharpType: typeof(RescaleMode),
             GetValues: a => [.. Enum.GetNames(typeof(RescaleMode))],
@@ -231,7 +256,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "5.0",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui", // "comfyui" feature flag for parameters that require ComfyUI
+            FeatureFlag: FeatureId,
 
             // Check your IDE's completions here, there's tons of additional options. Look inside the T2IParamTypes to see how other params are registered.
             Min: 0,
@@ -249,7 +274,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "768",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: 16,
             Max: 16384,
             Step: 8,
@@ -263,7 +288,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "768",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: 16,
             Max: 16384,
             Step: 8,
@@ -277,7 +302,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "256",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: 16,
             Max: 16384,
             Step: 8,
@@ -291,7 +316,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "-1.0",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: -1,
             Max: 10000,
             Step: 0.01,
@@ -305,7 +330,7 @@ public class SDPerturbedAttentionExtension : Extension // extend the "Extension"
             "5.42",
             Toggleable: true,
             Group: SlidingWindowParameters,
-            FeatureFlag: "comfyui",
+            FeatureFlag: FeatureId,
             Min: -1,
             Max: 10000,
             Step: 0.01,
